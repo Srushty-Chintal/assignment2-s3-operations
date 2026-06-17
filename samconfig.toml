@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "assignment2-s3-operations"
+resolve_s3 = true
+s3_prefix = "assignment2-s3-operations"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Assignment2BucketName=\"assignment2-s3-operations-srushty-001\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"

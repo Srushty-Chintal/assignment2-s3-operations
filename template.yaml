@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Assignment 2 - S3 Operations using Lambda and boto3
+
+Parameters:
+  Assignment2BucketName:
+    Type: String
+    Description: S3 bucket name for Assignment 2 operations
+
+Resources:
+
+  Assignment2Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref Assignment2BucketName
+
+  S3OperationsLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: assignment2-s3-operations-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: assignment2-s3-operations-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetObjectTagging
+                  - s3:PutObjectTagging
+                Resource:
+                  - !Sub arn:aws:s3:::${Assignment2BucketName}
+                  - !Sub arn:aws:s3:::${Assignment2BucketName}/*
+
+  S3OperationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: assignment2-s3-operations-function
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      CodeUri: src/
+      Role: !GetAtt S3OperationsLambdaRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref Assignment2BucketName
+
+Outputs:
+  Assignment2BucketOutput:
+    Description: Assignment 2 S3 bucket name
+    Value: !Ref Assignment2Bucket
+
+  LambdaFunctionOutput:
+    Description: Assignment 2 Lambda function name
+    Value: !Ref S3OperationsFunction

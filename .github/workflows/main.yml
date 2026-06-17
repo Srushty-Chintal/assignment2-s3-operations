@@ -1,0 +1,50 @@
+name: Deploy Assignment 2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Unit Tests
+        run: |
+          pytest -v
+
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: SAM Build
+        run: sam build
+
+      - name: SAM Deploy
+        run: |
+          sam deploy \
+            --stack-name assignment2-s3-operations \
+            --region us-east-1 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --parameter-overrides Assignment2BucketName=assignment2-s3-operations-srushty-001 \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
