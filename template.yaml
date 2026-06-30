@@ -1,35 +1,34 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Assignment 2 - S3 Operations using Lambda and boto3
+Description: S3 Operations Assignment using AWS SAM
 
-Parameters:
-  Assignment2BucketName:
-    Type: String
-    Description: S3 bucket name for Assignment 2 operations
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 900
+    MemorySize: 512
 
 Resources:
-
-  Assignment2Bucket:
+  AssignmentBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Ref Assignment2BucketName
+      BucketName: !Sub "assignment2-s3-operations-${AWS::AccountId}-${AWS::Region}"
 
-  S3OperationsLambdaRole:
+  S3OperationLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: assignment2-s3-operations-role
+      
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-
       Policies:
-        - PolicyName: assignment2-s3-operations-policy
+        - PolicyName: S3OperationFullAccessPolicy
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -40,35 +39,35 @@ Resources:
 
               - Effect: Allow
                 Action:
+                  - s3:ListBucket
+                Resource: !GetAtt AssignmentBucket.Arn
+
+              - Effect: Allow
+                Action:
                   - s3:PutObject
                   - s3:GetObject
                   - s3:DeleteObject
-                  - s3:ListBucket
-                  - s3:GetObjectTagging
                   - s3:PutObjectTagging
-                Resource:
-                  - !Sub arn:aws:s3:::${Assignment2BucketName}
-                  - !Sub arn:aws:s3:::${Assignment2BucketName}/*
+                  - s3:GetObjectTagging
+                  - s3:DeleteObjectTagging
+                Resource: !Sub "${AssignmentBucket.Arn}/*"
 
-  S3OperationsFunction:
+  S3OperationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: assignment2-s3-operations-function
-      Runtime: python3.12
-      Handler: app.lambda_handler
+      FunctionName: s3-operation-assignment-function
       CodeUri: src/
-      Role: !GetAtt S3OperationsLambdaRole.Arn
-      Timeout: 300
-      MemorySize: 256
+      Handler: app.lambda_handler
+      Role: !GetAtt S3OperationLambdaRole.Arn
       Environment:
         Variables:
-          BUCKET_NAME: !Ref Assignment2BucketName
+          BUCKET_NAME: !Ref AssignmentBucket
 
 Outputs:
-  Assignment2BucketOutput:
-    Description: Assignment 2 S3 bucket name
-    Value: !Ref Assignment2Bucket
+  BucketName:
+    Description: Created S3 Bucket Name
+    Value: !Ref AssignmentBucket
 
-  LambdaFunctionOutput:
-    Description: Assignment 2 Lambda function name
-    Value: !Ref S3OperationsFunction
+  FunctionName:
+    Description: Lambda Function Name
+    Value: !Ref S3OperationFunction

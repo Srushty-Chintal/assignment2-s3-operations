@@ -1,93 +1,134 @@
+from urllib.parse import urlencode
 import boto3
 
 
 class S3Operation:
-
-    def __init__(self, bucket_name):
+    def __init__(self, bucket_name, region_name="us-east-1"):
         self.bucket_name = bucket_name
-        self.s3_client = boto3.client("s3")
+        self.s3_client = boto3.client("s3", region_name=region_name)
 
-    def add_s3_objects(self, object_name, content, tags=None, metadata=None):
+    def add_s3_objects(self, total_objects=2500):
+        tag_values = ["natural", "even", "odd"]
 
-        self.s3_client.put_object(
-            Bucket=self.bucket_name,
-            Key=object_name,
-            Body=content,
-            Metadata=metadata or {},
-            Tagging=tags or ""
-        )
+        for i in range(1, total_objects + 1):
+            category = tag_values[i % 3]
 
-        return f"{object_name} uploaded successfully"
+            key = f"numbers/number_{i}.txt"
+            content = f"This is natural number {i}"
 
-    def fetch_s3_objects_by_tags(self):
+            metadata = {
+                "number-type": category,
+                "created-by": "boto3"
+            }
 
-        response = self.s3_client.list_objects_v2(
-            Bucket=self.bucket_name
-        )
+            tags = {
+                "number-type": category,
+                "created-by": "assignment"
+            }
 
-        objects = []
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=content.encode("utf-8"),
+                Metadata=metadata,
+                Tagging=urlencode(tags)
+            )
 
-        if "Contents" in response:
+        return total_objects
 
-            for obj in response["Contents"]:
+    def get_all_object_keys(self):
+        paginator = self.s3_client.get_paginator("list_objects_v2")
+        keys = []
 
-                key = obj["Key"]
+        for page in paginator.paginate(Bucket=self.bucket_name):
+            for obj in page.get("Contents", []):
+                keys.append(obj["Key"])
 
-                tag_response = self.s3_client.get_object_tagging(
+        return keys
+
+    def fetch_s3_objects_by_tags(
+        self,
+        tag_key,
+        tag_value,
+        output_file="/tmp/filtered_by_tags.txt"
+    ):
+        matched_keys = []
+
+        for key in self.get_all_object_keys():
+            response = self.s3_client.get_object_tagging(
+                Bucket=self.bucket_name,
+                Key=key
+            )
+
+            tags = {
+                tag["Key"]: tag["Value"]
+                for tag in response.get("TagSet", [])
+            }
+
+            if tags.get(tag_key) == tag_value:
+                matched_keys.append(key)
+
+        with open(output_file, "w", encoding="utf-8") as file:
+            for key in matched_keys:
+                file.write(key + "\n")
+
+        return matched_keys
+
+    def fetch_s3_objects_by_metadata(
+        self,
+        metadata_key,
+        metadata_value,
+        output_file="/tmp/filtered_by_metadata.txt"
+    ):
+        matched_keys = []
+
+        for key in self.get_all_object_keys():
+            response = self.s3_client.head_object(
+                Bucket=self.bucket_name,
+                Key=key
+            )
+
+            metadata = response.get("Metadata", {})
+
+            if metadata.get(metadata_key) == metadata_value:
+                matched_keys.append(key)
+
+        with open(output_file, "w", encoding="utf-8") as file:
+            for key in matched_keys:
+                file.write(key + "\n")
+
+        return matched_keys
+
+    def delete_s3_objects_by_tags(self, tag_key, tag_value):
+        keys_to_delete = self.fetch_s3_objects_by_tags(
+        tag_key,
+        tag_value,
+        output_file="/tmp/delete_by_tags.txt"
+    )
+
+        self._delete_objects(keys_to_delete)
+
+        return len(keys_to_delete)
+    
+    def delete_s3_objects_by_metadata(self, metadata_key, metadata_value):
+        keys_to_delete = self.fetch_s3_objects_by_metadata(
+        metadata_key,
+        metadata_value,
+        output_file="/tmp/delete_by_metadata.txt"
+    )
+
+        self._delete_objects(keys_to_delete)
+
+        return len(keys_to_delete)
+    def _delete_objects(self, keys):
+        for i in range(0, len(keys), 1000):
+            batch = keys[i:i + 1000]
+
+            if batch:
+                self.s3_client.delete_objects(
                     Bucket=self.bucket_name,
-                    Key=key
+                    Delete={
+                        "Objects": [{"Key": key} for key in batch],
+                        "Quiet": True
+                    }
                 )
-
-                objects.append({
-                    "object": key,
-                    "tags": tag_response["TagSet"]
-                })
-
-        return objects
-
-    def fetch_s3_objects_by_metadata(self):
-
-        response = self.s3_client.list_objects_v2(
-            Bucket=self.bucket_name
-        )
-
-        objects = []
-
-        if "Contents" in response:
-
-            for obj in response["Contents"]:
-
-                key = obj["Key"]
-
-                metadata = self.s3_client.head_object(
-                    Bucket=self.bucket_name,
-                    Key=key
-                )
-
-                objects.append({
-                    "object": key,
-                    "metadata": metadata["Metadata"]
-                })
-
-        return objects
-
-    def delete_s3_objects_by_tags(self):
-
-        response = self.s3_client.list_objects_v2(
-            Bucket=self.bucket_name
-        )
-
-        if "Contents" in response:
-
-            for obj in response["Contents"]:
-
-                self.s3_client.delete_object(
-                    Bucket=self.bucket_name,
-                    Key=obj["Key"]
-                )
-
-        return "Objects deleted successfully"
-
-    def delete_s3_objects_by_metadata(self):
-
-        return self.delete_s3_objects_by_tags()
