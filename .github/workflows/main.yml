@@ -44,8 +44,8 @@ jobs:
       - name: SAM Deploy
         run: |
           sam deploy \
-            --stack-name s3-operation-assignment-stack \
-            --region us-east-1 \
-            --capabilities CAPABILITY_IAM \
-            --no-confirm-changeset \
-            --no-fail-on-empty-changeset
+          --stack-name assignment2-s3-operations \
+          --region us-east-1 \
+          --capabilities CAPABILITY_IAM \
+          --no-confirm-changeset \
+          --no-fail-on-empty-changeset
